@@ -684,22 +684,22 @@ function AIAssistant({ setRouteLabel }: { setRouteLabel: (s: string) => void }) 
     if (isCarShed) setRouteLabel("Srikakulam → Vizag Car Shed");
 
     setTimeout(() => {
+      const replyText = isCarShed
+        ? "Take Bus 111A → Expected Arrival: 10 mins → Map route initialized → Get down at Hanumanthawaka Junction."
+        : lower.includes("araku")
+        ? "Cheapest: APSRTC Pallevelugu via Anantagiri → 4h 30m → ₹160 → Get down at Araku Bus Stand."
+        : lower.includes("gajuwaka")
+        ? "Last bus 28A departs RTC Complex at 22:45 → 35 mins → Get down at Gajuwaka Junction."
+        : "Based on cached schedules: nearest bus departs in ~12 mins. Tap Smart Routes for alternates.";
       const reply: Msg = {
         id: Date.now() + 1,
         role: "bot",
-        rich: isCarShed || lower.includes("vizag"),
-        text: isCarShed
-          ? "Take Bus 111A → Expected Arrival: 10 mins → Map route initialized → Get down at Hanumanthawaka Junction."
-          : lower.includes("araku")
-          ? "Cheapest: APSRTC Pallevelugu via Anantagiri → 4h 30m → ₹160 → Get down at Araku Bus Stand."
-          : lower.includes("gajuwaka")
-          ? "Last bus 28A departs RTC Complex at 22:45 → 35 mins → Get down at Gajuwaka Junction.",
-        ...{},
-      } as Msg;
-      // fallback text if none matched
-      if (!reply.text) reply.text = "Based on cached schedules: nearest bus departs in ~12 mins. Tap Smart Routes for alternates.";
+        rich: isCarShed || lower.includes("vizag") || lower.includes("gajuwaka") || lower.includes("araku"),
+        text: replyText,
+      };
       setMessages((m) => [...m, reply]);
     }, 600);
+
   };
 
   return (
