@@ -125,6 +125,7 @@ function HomeMap({
 }: { routeLabel: string; setRouteLabel: (s: string) => void }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [destination, setDestination] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const pills = [
     { id: "Vizag Beach", label: "Vizag Beach", route: "Srikakulam → Vizag Beach" },
@@ -132,10 +133,25 @@ function HomeMap({
     { id: "RTC Complex", label: "RTC Complex", route: "Srikakulam → RTC Complex" },
   ];
 
+  const placesAvailable = new Set(["RTC Complex", "Maddilapalem", "Vizag Beach"]);
+
   const choose = (p: { id: string; route: string }) => {
     setDestination(p.id);
     setRouteLabel(p.route);
     setSheetOpen(true);
+  };
+
+  const submitSearch = () => {
+    const q = search.trim();
+    if (!q) return;
+    // Normalize known destinations to canonical casing
+    const known = ["RTC Complex", "Maddilapalem", "Vizag Beach", "Gajuwaka", "Hanumanthawaka"];
+    const match = known.find((k) => k.toLowerCase() === q.toLowerCase());
+    const dest = match ?? q;
+    setDestination(dest);
+    setRouteLabel(`Srikakulam → ${dest}`);
+    if (placesAvailable.has(dest)) setSheetOpen(true);
+    else setSheetOpen(false);
   };
 
   return (
@@ -155,15 +171,24 @@ function HomeMap({
         {/* Map */}
         <div className="relative h-[280px] overflow-hidden rounded-2xl border border-border bg-accent">
           <MapMock destination={destination} />
-          <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-md backdrop-blur">
-            <Search className="h-4 w-4 text-muted-foreground" />
+          <form
+            onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
+            className="absolute left-2.5 right-2.5 top-2.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-md backdrop-blur"
+          >
             <input
-              defaultValue={destination ?? "Where to?"}
-              onFocus={() => setSheetOpen(true)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              placeholder="Search destination"
+              placeholder={destination ? `Where to? (current: ${destination})` : "Where to? Try Gajuwaka, RTC Complex…"}
             />
-          </div>
+            <button
+              type="submit"
+              aria-label="Search destination"
+              className="rounded-lg bg-indigo-600 p-1.5 text-white shadow-sm transition active:scale-95"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          </form>
           <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between rounded-xl bg-indigo-600/95 px-3 py-2.5 text-white shadow-lg">
             <span className="flex items-center gap-2 text-xs font-semibold">
               <Navigation className="h-3.5 w-3.5" /> {routeLabel}
@@ -228,11 +253,20 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string; icon
 function MapMock({ destination }: { destination: string | null }) {
   // Different end markers slightly shifted for visual reroute effect
   const ends: Record<string, { x: number; y: number; label: string }> = {
-    "Vizag Beach": { x: 360, y: 280, label: "Vizag Beach" },
+    "Vizag Beach": { x: 360, y: 260, label: "Vizag Beach" },
     "Maddilapalem": { x: 320, y: 230, label: "Maddilapalem" },
     "RTC Complex": { x: 340, y: 200, label: "RTC Complex" },
+    "Gajuwaka": { x: 300, y: 250, label: "Gajuwaka" },
+    "Hanumanthawaka": { x: 330, y: 215, label: "Hanumanthawaka" },
   };
-  const end = (destination && ends[destination]) || { x: 360, y: 260, label: "Visakhapatnam" };
+  // For unknown searched destinations, derive a stable pseudo-position from the string
+  const fallback = (() => {
+    if (!destination) return { x: 360, y: 260, label: "Visakhapatnam" };
+    let h = 0;
+    for (let i = 0; i < destination.length; i++) h = (h * 31 + destination.charCodeAt(i)) >>> 0;
+    return { x: 280 + (h % 90), y: 190 + (h % 80), label: destination };
+  })();
+  const end = (destination && ends[destination]) || fallback;
 
   return (
     <svg viewBox="0 0 400 280" className="h-full w-full">
