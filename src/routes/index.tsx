@@ -171,15 +171,24 @@ function HomeMap({
         {/* Map */}
         <div className="relative h-[280px] overflow-hidden rounded-2xl border border-border bg-accent">
           <MapMock destination={destination} />
-          <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-md backdrop-blur">
-            <Search className="h-4 w-4 text-muted-foreground" />
+          <form
+            onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
+            className="absolute left-2.5 right-2.5 top-2.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-md backdrop-blur"
+          >
             <input
-              defaultValue={destination ?? "Where to?"}
-              onFocus={() => setSheetOpen(true)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              placeholder="Search destination"
+              placeholder={destination ? `Where to? (current: ${destination})` : "Where to? Try Gajuwaka, RTC Complex…"}
             />
-          </div>
+            <button
+              type="submit"
+              aria-label="Search destination"
+              className="rounded-lg bg-indigo-600 p-1.5 text-white shadow-sm transition active:scale-95"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          </form>
           <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between rounded-xl bg-indigo-600/95 px-3 py-2.5 text-white shadow-lg">
             <span className="flex items-center gap-2 text-xs font-semibold">
               <Navigation className="h-3.5 w-3.5" /> {routeLabel}
