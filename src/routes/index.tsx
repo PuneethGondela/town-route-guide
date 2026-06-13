@@ -253,11 +253,20 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string; icon
 function MapMock({ destination }: { destination: string | null }) {
   // Different end markers slightly shifted for visual reroute effect
   const ends: Record<string, { x: number; y: number; label: string }> = {
-    "Vizag Beach": { x: 360, y: 280, label: "Vizag Beach" },
+    "Vizag Beach": { x: 360, y: 260, label: "Vizag Beach" },
     "Maddilapalem": { x: 320, y: 230, label: "Maddilapalem" },
     "RTC Complex": { x: 340, y: 200, label: "RTC Complex" },
+    "Gajuwaka": { x: 300, y: 250, label: "Gajuwaka" },
+    "Hanumanthawaka": { x: 330, y: 215, label: "Hanumanthawaka" },
   };
-  const end = (destination && ends[destination]) || { x: 360, y: 260, label: "Visakhapatnam" };
+  // For unknown searched destinations, derive a stable pseudo-position from the string
+  const fallback = (() => {
+    if (!destination) return { x: 360, y: 260, label: "Visakhapatnam" };
+    let h = 0;
+    for (let i = 0; i < destination.length; i++) h = (h * 31 + destination.charCodeAt(i)) >>> 0;
+    return { x: 280 + (h % 90), y: 190 + (h % 80), label: destination };
+  })();
+  const end = (destination && ends[destination]) || fallback;
 
   return (
     <svg viewBox="0 0 400 280" className="h-full w-full">
