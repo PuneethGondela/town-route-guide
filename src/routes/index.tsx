@@ -125,6 +125,7 @@ function HomeMap({
 }: { routeLabel: string; setRouteLabel: (s: string) => void }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [destination, setDestination] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const pills = [
     { id: "Vizag Beach", label: "Vizag Beach", route: "Srikakulam → Vizag Beach" },
@@ -132,10 +133,25 @@ function HomeMap({
     { id: "RTC Complex", label: "RTC Complex", route: "Srikakulam → RTC Complex" },
   ];
 
+  const placesAvailable = new Set(["RTC Complex", "Maddilapalem", "Vizag Beach"]);
+
   const choose = (p: { id: string; route: string }) => {
     setDestination(p.id);
     setRouteLabel(p.route);
     setSheetOpen(true);
+  };
+
+  const submitSearch = () => {
+    const q = search.trim();
+    if (!q) return;
+    // Normalize known destinations to canonical casing
+    const known = ["RTC Complex", "Maddilapalem", "Vizag Beach", "Gajuwaka", "Hanumanthawaka"];
+    const match = known.find((k) => k.toLowerCase() === q.toLowerCase());
+    const dest = match ?? q;
+    setDestination(dest);
+    setRouteLabel(`Srikakulam → ${dest}`);
+    if (placesAvailable.has(dest)) setSheetOpen(true);
+    else setSheetOpen(false);
   };
 
   return (
