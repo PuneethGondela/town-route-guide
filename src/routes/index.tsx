@@ -1,46 +1,235 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Map as MapIcon, Route as RouteIcon, Shield, Bot, Search, Wifi, WifiOff,
   MapPin, Utensils, Hospital, Banknote, PartyPopper, Landmark, X,
   Clock, IndianRupee, Users, Bus, ArrowRight, AlertTriangle, PhoneCall,
   Share2, ShieldCheck, Send, Sparkles, Navigation, ChevronRight, Bell,
+  Languages, Copy, Loader2, Check, Lightbulb, ShieldAlert,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Naa Transit — Smart Public Transport" },
-      { name: "description", content: "Smart public transport for Srikakulam, Vizag and small towns. Offline-ready routes, safety & AI assistant." },
-      { property: "og:title", content: "Naa Transit" },
-      { property: "og:description", content: "Smart public transport for small cities & towns." },
+      { title: "Naa Transit — APSRTC Smart Transit (AP)" },
+      { name: "description", content: "Multi-language APSRTC bus network companion for Andhra Pradesh — live routes, safety hub and AI travel assistant." },
+      { property: "og:title", content: "Naa Transit — APSRTC" },
+      { property: "og:description", content: "Smart public transport for Andhra Pradesh." },
     ],
   }),
   component: App,
 });
 
+/* ============================================================
+   i18n DICTIONARY
+   ============================================================ */
+type Lang = "en" | "te" | "hi";
+const LANGS: { id: Lang; label: string }[] = [
+  { id: "en", label: "ENG" },
+  { id: "te", label: "తెలుగు" },
+  { id: "hi", label: "HIND" },
+];
+
+const DICT = {
+  appName: { en: "Naa Transit", te: "నా ట్రాన్సిట్", hi: "ना ट्रांज़िट" },
+  online: { en: "Online", te: "ఆన్‌లైన్", hi: "ऑनलाइन" },
+  offline: { en: "Offline", te: "ఆఫ్‌లైన్", hi: "ऑफ़लाइन" },
+  cached: { en: "Using cached schedules • Last sync 4 min ago", te: "క్యాష్ చేసిన షెడ్యూల్‌లు • 4 నిమి క్రితం సింక్", hi: "कैश शेड्यूल का उपयोग • 4 मिनट पहले सिंक" },
+  discover: { en: "Discover", te: "డిస్కవర్", hi: "खोजें" },
+  routes: { en: "Smart Routes", te: "స్మార్ట్ రూట్లు", hi: "स्मार्ट रूट्स" },
+  safety: { en: "Safety Hub", te: "రక్షణ హబ్", hi: "सुरक्षा हब" },
+  assistant: { en: "Assistant", te: "సహాయకుడు", hi: "सहायक" },
+  fastest: { en: "Fastest", te: "అతి వేగవంతమైనది", hi: "सबसे तेज़" },
+  cheapest: { en: "Cheapest", te: "అతి చౌక", hi: "सबसे सस्ता" },
+  leastCrowd: { en: "Least Crowded", te: "తక్కువ రద్దీ", hi: "कम भीड़" },
+  crowdHigh: { en: "Crowd: High", te: "రద్దీ: ఎక్కువ", hi: "भीड़: अधिक" },
+  crowdMed: { en: "Crowd: Medium", te: "రద్దీ: మధ్యస్థం", hi: "भीड़: मध्यम" },
+  crowdLow: { en: "Crowd: Low", te: "రద్దీ: తక్కువ", hi: "भीड़: कम" },
+  getDown: { en: "Get down here", te: "ఇక్కడ దిగండి", hi: "यहाँ उतरें" },
+  changeBus: { en: "Change bus here", te: "ఇక్కడ బస్సు మార్చండి", hi: "यहाँ बस बदलें" },
+  from: { en: "From", te: "నుండి", hi: "से" },
+  to: { en: "To", te: "వరకు", hi: "तक" },
+  whereTo: { en: "Where to?", te: "ఎక్కడికి?", hi: "कहाँ जाना है?" },
+  search: { en: "Search", te: "వెతకండి", hi: "खोजें" },
+  surroundings: { en: "Surrounding Places", te: "సమీప ప్రదేశాలు", hi: "आस-पास के स्थान" },
+  tourist: { en: "Tourist", te: "పర్యాటక", hi: "पर्यटन" },
+  food: { en: "Food", te: "ఆహారం", hi: "खाना" },
+  medical: { en: "Medical", te: "వైద్యం", hi: "चिकित्सा" },
+  atm: { en: "ATM / Bank", te: "ATM / బ్యాంక్", hi: "ATM / बैंक" },
+  events: { en: "Events", te: "ఈవెంట్‌లు", hi: "इवेंट" },
+  temples: { en: "Temples", te: "దేవాలయాలు", hi: "मंदिर" },
+  quickDest: { en: "Quick Destinations", te: "త్వరిత గమ్యస్థానాలు", hi: "त्वरित गंतव्य" },
+  sosTitle: { en: "Emergency SOS Alert", te: "అత్యవసర SOS హెచ్చరిక", hi: "आपातकालीन SOS अलर्ट" },
+  sosHint: { en: "Hold to dispatch GPS to trusted contacts", te: "GPS పంపడానికి నొక్కి పట్టుకోండి", hi: "GPS भेजने के लिए दबाए रखें" },
+  sosSent: { en: "SMS payload holding precise GPS sent to your trusted contacts via local carrier intents.", te: "మీ GPS నిర్దేశాంకాలతో SMS పేలోడ్ స్థానిక క్యారియర్ ద్వారా మీ నమ్మకమైన పరిచయాలకు పంపబడింది.", hi: "आपके सटीक GPS के साथ SMS पेलोड स्थानीय कैरियर के माध्यम से आपके विश्वसनीय संपर्कों को भेजा गया।" },
+  liveJourney: { en: "Share Live Journey Link", te: "లైవ్ ప్రయాణ లింక్ షేర్ చేయండి", hi: "लाइव यात्रा लिंक साझा करें" },
+  linkCopied: { en: "Live tracking link ready", te: "లైవ్ ట్రాకింగ్ లింక్ సిద్ధం", hi: "लाइव ट्रैकिंग लिंक तैयार" },
+  copy: { en: "Copy", te: "కాపీ", hi: "कॉपी" },
+  copied: { en: "Copied", te: "కాపీ చేయబడింది", hi: "कॉपी हो गया" },
+  womenSafety: { en: "Women Safety Alerts • Corridor Feed", te: "మహిళా భద్రతా హెచ్చరికలు • కారిడార్ ఫీడ్", hi: "महिला सुरक्षा अलर्ट • कॉरिडोर फ़ीड" },
+  aiTitle: { en: "AI Travel Assistant", te: "AI ప్రయాణ సహాయకుడు", hi: "AI यात्रा सहायक" },
+  aiPlaceholder: { en: "Ask anything about APSRTC buses…", te: "APSRTC బస్సుల గురించి అడగండి…", hi: "APSRTC बसों के बारे में पूछें…" },
+  suggested: { en: "Suggested", te: "సూచనలు", hi: "सुझाए गए" },
+  busArrives: { en: "Expected Arrival", te: "అంచనా రాక", hi: "अनुमानित आगमन" },
+  platform: { en: "Platform", te: "ప్లాట్‌ఫారం", hi: "प्लेटफ़ॉर्म" },
+  destinationStop: { en: "Destination Junction", te: "గమ్యస్థాన జంక్షన్", hi: "गंतव्य जंक्शन" },
+  mapInit: { en: "Map route initialized", te: "మ్యాప్ రూట్ ప్రారంభించబడింది", hi: "मानचित्र मार्ग आरंभ" },
+  showRoutes: { en: "View Smart Routes →", te: "స్మార్ట్ రూట్లు చూడండి →", hi: "स्मार्ट रूट देखें →" },
+  expand: { en: "Tap to view stops", te: "స్టాప్‌లు చూడటానికి నొక్కండి", hi: "स्टॉप देखने के लिए टैप करें" },
+  fleetSL: { en: "Super Luxury", te: "సూపర్ లగ్జరీ", hi: "सुपर लग्ज़री" },
+  fleetPV: { en: "Palle Velugu / Express", te: "పల్లె వెలుగు / ఎక్స్‌ప్రెస్", hi: "पल्ले वेलुगु / एक्सप्रेस" },
+  fleetAC: { en: "Amaravati AC / Indra", te: "అమరావతి AC / ఇంద్ర", hi: "अमरावती AC / इंद्र" },
+} as const;
+
+type DictKey = keyof typeof DICT;
+const T = (lang: Lang, key: DictKey) => DICT[key][lang];
+
+/* ============================================================
+   AP-WIDE LOCATION GRAPH
+   ============================================================ */
+type City = {
+  id: string;
+  name: string;
+  aliases: string[];
+  station: string;
+  x: number; y: number;          // map coords (0-100)
+  district: string;
+  places: {
+    tourist: string[];
+    food: string[];
+    medical: string[];
+    atm: string[];
+    events: string[];
+    temples: string[];
+  };
+  safety: string[];
+};
+
+const CITIES: City[] = [
+  { id: "vja", name: "Vijayawada", aliases: ["vijayawada", "bzv", "bezawada"], station: "Pundit Nehru Bus Station (PNBS)", x: 42, y: 50, district: "NTR",
+    places: {
+      tourist: ["Kanaka Durga Temple View", "Prakasam Barrage", "Bhavani Island"],
+      food: ["Babai Hotel (Andhra Meals)", "RR Durbar Biryani", "Minerva Coffee Shop"],
+      medical: ["Government General Hospital", "Manipal Hospitals Vijayawada"],
+      atm: ["SBI PNBS Branch", "Andhra Bank One Town"],
+      events: ["Krishna Pushkaralu Drill", "Kanaka Durga Brahmotsavam"],
+      temples: ["Kanaka Durga Devasthanam", "Hinkar Thirtha Jain Temple"],
+    },
+    safety: ["Well-lit Platform 4", "Police patrolling near Bay 7", "CCTV active at exit gate"]
+  },
+  { id: "tpt", name: "Tirupati", aliases: ["tirupati", "tirumala", "alipiri"], station: "Alipiri Bus Stand", x: 55, y: 88, district: "Tirupati",
+    places: {
+      tourist: ["Sri Venkateswara Museum", "Silathoranam Rock", "Chandragiri Fort"],
+      food: ["Maya Hotel (Pure Veg)", "Bhimas Deluxe", "Aaha Tiffins"],
+      medical: ["SVIMS Hospital", "BIRRD Hospital"],
+      atm: ["SBI Alipiri Branch", "Indian Bank Tirumala"],
+      events: ["Brahmotsavam Procession", "Vaikunta Ekadasi Queue Drill"],
+      temples: ["Sri Venkateswara Temple", "Govindaraja Swamy Temple", "Kapila Theertham"],
+    },
+    safety: ["Devasthanam police active", "Women help desk near Q-complex", "Free shuttle till 11 PM"]
+  },
+  { id: "vzg", name: "Visakhapatnam", aliases: ["vizag", "vsp", "visakhapatnam", "vskp"], station: "Dwaraka RTC Complex", x: 78, y: 25, district: "Visakhapatnam",
+    places: {
+      tourist: ["RK Beach", "Kailasagiri", "Submarine Museum"],
+      food: ["Sea Inn Beachside", "Dharani Restaurant", "Bay Of Bengal Cafe"],
+      medical: ["KGH Hospital", "Apollo Health City"],
+      atm: ["SBI RTC Complex", "Canara Bank Dwaraka Nagar"],
+      events: ["Visakha Utsav", "Navy Day Air Show"],
+      temples: ["Simhachalam Temple", "ISKCON Vizag"],
+    },
+    safety: ["Beach patrol till midnight", "Well-lit Dwaraka platform", "Pink auto stand active"]
+  },
+  { id: "skl", name: "Srikakulam", aliases: ["srikakulam", "skl", "ckl"], station: "Srikakulam RTC", x: 88, y: 15, district: "Srikakulam",
+    places: {
+      tourist: ["Salihundam Buddhist Site", "Kalingapatnam Beach", "Telineelapuram Bird Sanctuary"],
+      food: ["Hotel Maurya", "Sri Krishna Tiffins", "Konaseema Mess"],
+      medical: ["RIMS Srikakulam", "Government District Hospital"],
+      atm: ["SBI Main Branch", "Union Bank Town"],
+      events: ["Srikakulam Utsavalu", "Arasavalli Ratha Yatra"],
+      temples: ["Arasavalli Sun Temple", "Srikurmam Temple"],
+    },
+    safety: ["RTC night patrol", "Helpline kiosk active", "Women coach in 8841"]
+  },
+  { id: "gnt", name: "Guntur", aliases: ["guntur", "gnt"], station: "NTR Bus Stand Guntur", x: 40, y: 56, district: "Guntur",
+    places: {
+      tourist: ["Amaravati Stupa", "Undavalli Caves", "Kondaveedu Fort"],
+      food: ["RR Hotel (Guntur Karam)", "Nellore Ruchulu", "Sangam Sweets"],
+      medical: ["Government General Hospital Guntur", "Lalitha Super Speciality"],
+      atm: ["Andhra Bank Brodipet", "SBI Arundelpet"],
+      events: ["Mirchi Yard Festival", "Amaravati Heritage Walk"],
+      temples: ["Kotappakonda", "Mangalagiri Narasimha Swamy"],
+    },
+    safety: ["Bus stand pink booth", "Bay 3 CCTV active", "Patrol from 5 AM"]
+  },
+  { id: "nlr", name: "Nellore", aliases: ["nellore", "nlr"], station: "Nellore RTC Complex", x: 50, y: 76, district: "Nellore",
+    places: {
+      tourist: ["Pulicat Lake", "Mypadu Beach", "Nelapattu Bird Sanctuary"],
+      food: ["Nellore Ruchulu", "Sri Anjaneya Tiffins", "Hotel Bahar"],
+      medical: ["ACSR Govt Hospital", "Narayana Medical College"],
+      atm: ["SBI Trunk Road", "Andhra Bank Stonehousepet"],
+      events: ["Rottela Panduga (Bara Shaheed Dargah)", "Mypadu Beach Fest"],
+      temples: ["Ranganathaswamy Temple", "Jonnawada Kamakshi"],
+    },
+    safety: ["Late-night patrol active", "Well-lit RTC bays", "Help desk till 11 PM"]
+  },
+  { id: "krn", name: "Kurnool", aliases: ["kurnool", "krn"], station: "Kurnool Bus Station", x: 22, y: 60, district: "Kurnool",
+    places: {
+      tourist: ["Belum Caves", "Oravakallu Rock Garden", "Konda Reddy Fort"],
+      food: ["Hotel Geetha", "Tunga Restaurant", "Sapthagiri Tiffins"],
+      medical: ["Kurnool Government Hospital", "Viswabharathi Hospital"],
+      atm: ["SBI Park Road", "Canara Bank Main"],
+      events: ["Mahanandi Brahmotsavam", "Banaganapalle Mango Fest"],
+      temples: ["Mahanandi Temple", "Yaganti Uma Maheswara"],
+    },
+    safety: ["RTC night marshals", "Women bay near platform 2", "Pink auto stand"]
+  },
+  { id: "kkd", name: "Kakinada", aliases: ["kakinada", "kkd"], station: "Kakinada Bus Complex", x: 62, y: 42, district: "Kakinada",
+    places: {
+      tourist: ["Hope Island", "Coringa Mangroves", "Uppada Beach"],
+      food: ["Subbayya Gari Hotel", "Kakinada Kaja House", "Hotel Sarovar"],
+      medical: ["GGH Kakinada", "Apollo Speciality"],
+      atm: ["SBI Main Road", "Indian Bank Bhanugudi"],
+      events: ["Sarpavaram Jatara", "Coringa Bird Festival"],
+      temples: ["Sri Bhavanarayana Temple", "Pithapuram Kukkuteswara"],
+    },
+    safety: ["Coastal patrol active", "Bay 5 well-lit", "Women help desk 24/7"]
+  },
+];
+
+const findCity = (q: string): City | null => {
+  const s = q.trim().toLowerCase();
+  if (!s) return null;
+  return CITIES.find(c => c.name.toLowerCase() === s || c.aliases.some(a => s.includes(a) || a.includes(s))) || null;
+};
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
 type Tab = "home" | "routes" | "safety" | "ai";
 
 function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [online, setOnline] = useState(true);
-  const [routeLabel, setRouteLabel] = useState("Srikakulam → Visakhapatnam");
+  const [lang, setLang] = useState<Lang>("en");
+  const [from, setFrom] = useState<City>(CITIES[0]); // Vijayawada
+  const [to, setTo] = useState<City>(CITIES[1]);     // Tirupati
+
+  const routeLabel = `${from.station} → ${to.station}`;
 
   return (
     <div className="min-h-screen w-full bg-slate-100 py-0 sm:py-6">
-      {/* Mobile device frame */}
       <div className="relative mx-auto flex w-full max-w-md flex-col overflow-hidden border border-slate-200 bg-background shadow-2xl sm:rounded-[2rem] sm:border-4 sm:border-slate-900/90"
         style={{ height: "min(880px, 100vh)" }}>
-        <GlobalHeader routeLabel={routeLabel} online={online} setOnline={setOnline} />
+        <GlobalHeader routeLabel={routeLabel} online={online} setOnline={setOnline} lang={lang} setLang={setLang} />
 
         <main className="flex-1 overflow-y-auto pb-20">
-          {tab === "home" && <HomeMap routeLabel={routeLabel} setRouteLabel={setRouteLabel} />}
-          {tab === "routes" && <SmartRoutes />}
-          {tab === "safety" && <Safety />}
-          {tab === "ai" && <AIAssistant setRouteLabel={setRouteLabel} />}
+          {tab === "home" && <HomeMap lang={lang} from={from} to={to} setFrom={setFrom} setTo={setTo} setTab={setTab} />}
+          {tab === "routes" && <SmartRoutes lang={lang} from={from} to={to} />}
+          {tab === "safety" && <Safety lang={lang} to={to} />}
+          {tab === "ai" && <AIAssistant lang={lang} from={from} to={to} setFrom={setFrom} setTo={setTo} />}
         </main>
 
-        <BottomNav tab={tab} setTab={setTab} />
+        <BottomNav tab={tab} setTab={setTab} lang={lang} />
       </div>
     </div>
   );
@@ -48,37 +237,54 @@ function App() {
 
 /* ---------- Global Header ---------- */
 function GlobalHeader({
-  routeLabel, online, setOnline,
-}: { routeLabel: string; online: boolean; setOnline: (b: boolean) => void }) {
+  routeLabel, online, setOnline, lang, setLang,
+}: { routeLabel: string; online: boolean; setOnline: (b: boolean) => void; lang: Lang; setLang: (l: Lang) => void }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
+    <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-3 pb-2.5 pt-3 backdrop-blur">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30">
             <Bus className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-[15px] font-bold leading-tight tracking-tight">
-              Naa Transit <span className="text-[10px] font-semibold text-muted-foreground">v2.0</span>
+            <h1 className="truncate text-[14px] font-bold leading-tight tracking-tight">
+              {T(lang, "appName")} <span className="text-[10px] font-semibold text-muted-foreground">APSRTC</span>
             </h1>
-            <p className="truncate text-[11px] font-medium text-indigo-700">{routeLabel}</p>
+            <p className="truncate text-[10.5px] font-medium leading-tight text-indigo-700">{routeLabel}</p>
           </div>
         </div>
         <button
           onClick={() => setOnline(!online)}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
-            online
-              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/40"
-              : "bg-amber-500 text-white shadow-sm shadow-amber-500/40"
+          className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${
+            online ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/40" : "bg-amber-500 text-white shadow-sm shadow-amber-500/40"
           }`}
         >
-          {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-          {online ? "Online" : "Offline"}
+          {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+          {online ? T(lang, "online") : T(lang, "offline")}
         </button>
       </div>
+
+      {/* Language pill toggle */}
+      <div className="mt-2 flex items-center gap-1.5">
+        <Languages className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex flex-1 items-center gap-1 rounded-full border border-border bg-muted/40 p-0.5">
+          {LANGS.map(l => {
+            const active = lang === l.id;
+            return (
+              <button key={l.id} onClick={() => setLang(l.id)}
+                className={`flex-1 rounded-full px-2 py-1 text-[10px] font-bold transition ${
+                  active ? "bg-indigo-600 text-white shadow" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                {l.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {!online && (
         <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-800">
-          Using Cached Schedules • Last sync 4 min ago
+          {T(lang, "cached")}
         </p>
       )}
     </header>
@@ -86,12 +292,12 @@ function GlobalHeader({
 }
 
 /* ---------- Bottom Nav ---------- */
-function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
+function BottomNav({ tab, setTab, lang }: { tab: Tab; setTab: (t: Tab) => void; lang: Lang }) {
   const items: { id: Tab; label: string; icon: typeof MapIcon }[] = [
-    { id: "home", label: "Discover", icon: MapIcon },
-    { id: "routes", label: "Routes", icon: RouteIcon },
-    { id: "safety", label: "Safety", icon: Shield },
-    { id: "ai", label: "Assistant", icon: Bot },
+    { id: "home", label: T(lang, "discover"), icon: MapIcon },
+    { id: "routes", label: T(lang, "routes"), icon: RouteIcon },
+    { id: "safety", label: T(lang, "safety"), icon: Shield },
+    { id: "ai", label: T(lang, "assistant"), icon: Bot },
   ];
   return (
     <nav className="absolute bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur">
@@ -100,17 +306,14 @@ function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
           const active = tab === it.id;
           const Icon = it.icon;
           return (
-            <button
-              key={it.id}
-              onClick={() => setTab(it.id)}
-              className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
+            <button key={it.id} onClick={() => setTab(it.id)}
+              className={`flex flex-col items-center gap-0.5 py-2 text-[9.5px] font-medium leading-tight transition-colors ${
                 active ? "text-indigo-600" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div className={`rounded-full px-3 py-1 transition ${active ? "bg-indigo-100" : ""}`}>
+              }`}>
+              <div className={`rounded-full px-3 py-0.5 transition ${active ? "bg-indigo-100" : ""}`}>
                 <Icon className="h-5 w-5" />
               </div>
-              <span className={active ? "font-bold" : ""}>{it.label}</span>
+              <span className={`truncate ${active ? "font-bold" : ""}`}>{it.label}</span>
             </button>
           );
         })}
@@ -119,447 +322,253 @@ function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   );
 }
 
-/* ---------- 1. Home & Map ---------- */
+/* ============================================================
+   HOME / MAP
+   ============================================================ */
 function HomeMap({
-  routeLabel, setRouteLabel,
-}: { routeLabel: string; setRouteLabel: (s: string) => void }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [destination, setDestination] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  lang, from, to, setFrom, setTo, setTab,
+}: { lang: Lang; from: City; to: City; setFrom: (c: City) => void; setTo: (c: City) => void; setTab: (t: Tab) => void }) {
+  const [fromQ, setFromQ] = useState(from.name);
+  const [toQ, setToQ] = useState(to.name);
+  const [sheetOpen, setSheetOpen] = useState(true);
 
-  const pills = [
-    { id: "Vizag Beach", label: "Vizag Beach", route: "Srikakulam → Vizag Beach" },
-    { id: "Maddilapalem", label: "Maddilapalem", route: "Srikakulam → Maddilapalem" },
-    { id: "RTC Complex", label: "RTC Complex", route: "Srikakulam → RTC Complex" },
-  ];
-
-  const placesAvailable = new Set(["RTC Complex", "Maddilapalem", "Vizag Beach"]);
-
-  const choose = (p: { id: string; route: string }) => {
-    setDestination(p.id);
-    setRouteLabel(p.route);
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const f = findCity(fromQ) ?? from;
+    const t = findCity(toQ) ?? to;
+    setFrom(f); setTo(t);
+    setFromQ(f.name); setToQ(t.name);
     setSheetOpen(true);
   };
 
-  const submitSearch = () => {
-    const q = search.trim();
-    if (!q) return;
-    // Normalize known destinations to canonical casing
-    const known = ["RTC Complex", "Maddilapalem", "Vizag Beach", "Gajuwaka", "Hanumanthawaka"];
-    const match = known.find((k) => k.toLowerCase() === q.toLowerCase());
-    const dest = match ?? q;
-    setDestination(dest);
-    setRouteLabel(`Srikakulam → ${dest}`);
-    if (placesAvailable.has(dest)) setSheetOpen(true);
-    else setSheetOpen(false);
-  };
-
   return (
-    <>
-      <div className="px-4 pt-3">
-        {/* Section title */}
-        <div className="mb-3 flex items-end justify-between">
-          <div>
-            <h2 className="text-base font-bold tracking-tight">Live Map</h2>
-            <p className="text-[11px] text-muted-foreground">Tap a destination to explore nearby</p>
-          </div>
-          <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> LIVE
-          </span>
+    <div className="flex flex-col gap-3 px-3 py-3">
+      {/* Search */}
+      <form onSubmit={submit} className="space-y-1.5 rounded-2xl border border-border bg-card p-2.5 shadow-sm">
+        <div className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-1.5">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">A</div>
+          <input value={fromQ} onChange={e => setFromQ(e.target.value)} placeholder={T(lang, "from")}
+            className="w-full bg-transparent text-[12px] font-medium outline-none placeholder:text-muted-foreground" />
         </div>
-
-        {/* Map */}
-        <div className="relative h-[280px] overflow-hidden rounded-2xl border border-border bg-accent">
-          <MapMock destination={destination} />
-          <form
-            onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
-            className="absolute left-2.5 right-2.5 top-2.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-md backdrop-blur"
-          >
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              placeholder={destination ? `Where to? (current: ${destination})` : "Where to? Try Gajuwaka, RTC Complex…"}
-            />
-            <button
-              type="submit"
-              aria-label="Search destination"
-              className="rounded-lg bg-indigo-600 p-1.5 text-white shadow-sm transition active:scale-95"
-            >
-              <Search className="h-3.5 w-3.5" />
-            </button>
-          </form>
-          <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between rounded-xl bg-indigo-600/95 px-3 py-2.5 text-white shadow-lg">
-            <span className="flex items-center gap-2 text-xs font-semibold">
-              <Navigation className="h-3.5 w-3.5" /> {routeLabel}
-            </span>
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">
-              ETA 2h 15m
-            </span>
-          </div>
-        </div>
-
-        {/* Quick destination pills */}
-        <div className="mt-3">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Quick destinations
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {pills.map((p) => {
-              const active = destination === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => choose(p)}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                    active
-                      ? "border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
-                      : "border-border bg-card text-foreground hover:border-indigo-300"
-                  }`}
-                >
-                  <MapPin className="h-3.5 w-3.5" /> {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Quick stats */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <Stat label="Next Bus" value="111A" icon={Bus} />
-          <Stat label="Arriving" value="10 min" icon={Clock} />
-          <Stat label="Crowd" value="Medium" icon={Users} />
-        </div>
-      </div>
-
-      {sheetOpen && destination && (
-        <PlacesSheet destination={destination} onClose={() => setSheetOpen(false)} />
-      )}
-    </>
-  );
-}
-
-function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Clock }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-2.5">
-      <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-        <Icon className="h-3 w-3" /> {label}
-      </div>
-      <div className="mt-0.5 text-sm font-bold tracking-tight">{value}</div>
-    </div>
-  );
-}
-
-function MapMock({ destination }: { destination: string | null }) {
-  // Different end markers slightly shifted for visual reroute effect
-  const ends: Record<string, { x: number; y: number; label: string }> = {
-    "Vizag Beach": { x: 360, y: 260, label: "Vizag Beach" },
-    "Maddilapalem": { x: 320, y: 230, label: "Maddilapalem" },
-    "RTC Complex": { x: 340, y: 200, label: "RTC Complex" },
-    "Gajuwaka": { x: 300, y: 250, label: "Gajuwaka" },
-    "Hanumanthawaka": { x: 330, y: 215, label: "Hanumanthawaka" },
-  };
-  // For unknown searched destinations, derive a stable pseudo-position from the string
-  const fallback = (() => {
-    if (!destination) return { x: 360, y: 260, label: "Visakhapatnam" };
-    let h = 0;
-    for (let i = 0; i < destination.length; i++) h = (h * 31 + destination.charCodeAt(i)) >>> 0;
-    return { x: 280 + (h % 90), y: 190 + (h % 80), label: destination };
-  })();
-  const end = (destination && ends[destination]) || fallback;
-
-  return (
-    <svg viewBox="0 0 400 280" className="h-full w-full">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#eef2ff" />
-          <stop offset="100%" stopColor="#dbeafe" />
-        </linearGradient>
-        <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
-          <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#c7d2fe" strokeWidth="0.5" opacity="0.5" />
-        </pattern>
-      </defs>
-      <rect width="400" height="280" fill="url(#bg)" />
-      <rect width="400" height="280" fill="url(#grid)" />
-      {/* roads */}
-      <g stroke="#94a3b8" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.4">
-        <path d="M-20 60 Q 120 80 200 50 T 420 100" />
-        <path d="M-20 180 Q 80 160 180 200 T 420 180" />
-        <path d="M60 -20 Q 80 100 140 160 T 200 300" />
-        <path d="M300 -20 Q 280 100 320 160 T 320 300" />
-      </g>
-      {/* route */}
-      <path
-        d={`M40 50 Q 140 110 200 140 T ${end.x} ${end.y}`}
-        stroke="#4f46e5"
-        strokeWidth="3.5"
-        strokeDasharray="2 6"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* start */}
-      <circle cx="40" cy="50" r="7" fill="#10b981" />
-      <circle cx="40" cy="50" r="12" fill="#10b981" fillOpacity="0.2" />
-      <text x="50" y="46" fontSize="10" fill="#0f172a" fontWeight="700">Srikakulam</text>
-      {/* mid */}
-      <circle cx="200" cy="140" r="4" fill="#4f46e5" />
-      <text x="208" y="136" fontSize="9" fill="#334155">Anakapalle</text>
-      {/* end */}
-      <circle cx={end.x} cy={end.y} r="18" fill="#e11d48" fillOpacity="0.18" />
-      <circle cx={end.x} cy={end.y} r="8" fill="#e11d48" />
-      <text x={end.x - 50} y={end.y + 25} fontSize="10" fill="#0f172a" fontWeight="700">
-        {end.label}
-      </text>
-    </svg>
-  );
-}
-
-/* ---------- Places sheet ---------- */
-type PlaceCat = "tourist" | "food" | "hospital" | "atm" | "events";
-
-function PlacesSheet({ destination, onClose }: { destination: string; onClose: () => void }) {
-  const [cat, setCat] = useState<PlaceCat>("tourist");
-  const tabs: { id: PlaceCat; label: string; icon: typeof Landmark }[] = [
-    { id: "tourist", label: "Tourist", icon: Landmark },
-    { id: "food", label: "Food", icon: Utensils },
-    { id: "hospital", label: "Medical", icon: Hospital },
-    { id: "atm", label: "ATMs", icon: Banknote },
-    { id: "events", label: "Events", icon: PartyPopper },
-  ];
-
-  const data: Record<PlaceCat, { name: string; meta: string; tag?: string }[]> = {
-    tourist: [
-      { name: "RK Beach Promenade", meta: "0.4 km • Beachfront walkway", tag: "Popular" },
-      { name: "INS Kursura Submarine Museum", meta: "0.8 km • Open till 8 PM" },
-      { name: "Kailasagiri Hilltop", meta: "6 km • Ropeway available" },
-      { name: "Tenneti Park", meta: "2.1 km • Sunset views" },
-    ],
-    food: [
-      { name: "Sai Ram Parlour", meta: "0.3 km • Tiffins & dosa • ₹" },
-      { name: "Dharani Restaurant", meta: "1.2 km • Andhra meals • ₹₹" },
-      { name: "Bay of Bengal Café", meta: "0.5 km • Seafood • ₹₹₹" },
-    ],
-    hospital: [
-      { name: "KGH Govt. Hospital", meta: "2.4 km • 24x7 Emergency" },
-      { name: "Apollo Health City", meta: "8 km • Multi-specialty" },
-    ],
-    atm: [
-      { name: "SBI ATM — Beach Road", meta: "0.2 km • Working" },
-      { name: "HDFC ATM — RTC Complex", meta: "3.1 km • Working" },
-    ],
-    events: [
-      { name: "Visakha Utsav Festival", meta: "Happening now at Beach Road", tag: "Live" },
-      { name: "Traffic diversion at RTC Complex", meta: "Use NH-16 bypass via Gopalapatnam", tag: "Alert" },
-      { name: "Navy Day Air Show", meta: "Dec 4 • RK Beach", tag: "Upcoming" },
-    ],
-  };
-
-  return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center bg-foreground/40" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-3xl bg-card pb-4 shadow-2xl animate-in slide-in-from-bottom-4"
-      >
-        <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
-        <div className="flex items-start justify-between px-5 pt-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Surrounding Places
-            </p>
-            <h2 className="text-lg font-bold">{destination}</h2>
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-secondary">
-            <X className="h-4 w-4" />
+        <div className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-1.5">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">B</div>
+          <input value={toQ} onChange={e => setToQ(e.target.value)} placeholder={T(lang, "whereTo")}
+            className="w-full bg-transparent text-[12px] font-medium outline-none placeholder:text-muted-foreground" />
+          <button type="submit" className="rounded-lg bg-indigo-600 px-2 py-1 text-white shadow-sm">
+            <Search className="h-3.5 w-3.5" />
           </button>
         </div>
+      </form>
 
-        <div className="mt-2 flex gap-1.5 overflow-x-auto px-5 pb-2">
-          {tabs.map((t) => {
-            const active = cat === t.id;
-            const Icon = t.icon;
+      {/* Quick destinations */}
+      <div>
+        <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{T(lang, "quickDest")}</p>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {CITIES.map(c => {
+            const active = c.id === to.id;
             return (
-              <button
-                key={t.id}
-                onClick={() => setCat(t.id)}
-                className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                  active
-                    ? "border-indigo-600 bg-indigo-600 text-white"
-                    : "border-border bg-card text-foreground"
-                }`}
-              >
-                <Icon className="h-3 w-3" /> {t.label}
+              <button key={c.id} onClick={() => { setTo(c); setToQ(c.name); setSheetOpen(true); }}
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold transition ${
+                  active ? "border-indigo-600 bg-indigo-600 text-white" : "border-border bg-card text-foreground hover:bg-muted"
+                }`}>
+                {c.name}
               </button>
             );
           })}
         </div>
-
-        <div className="max-h-[40vh] overflow-y-auto px-5">
-          <ul className="space-y-2 pb-2">
-            {data[cat].map((p) => (
-              <li key={p.name} className="flex items-start gap-3 rounded-xl border border-border bg-background p-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <MapPin className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold">{p.name}</p>
-                    {p.tag && (
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                        p.tag === "Live" ? "bg-emerald-100 text-emerald-700"
-                        : p.tag === "Alert" ? "bg-rose-100 text-rose-700"
-                        : "bg-indigo-100 text-indigo-700"
-                      }`}>{p.tag}</span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{p.meta}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- 2. Smart Routes ---------- */
-type RouteOpt = {
-  label: string; tag: string; time: string; price: string;
-  crowd: "Low" | "Medium" | "High";
-  buses: string[]; stops: string[]; getOff: string;
-};
-
-function SmartRoutes() {
-  const [from, setFrom] = useState("Srikakulam");
-  const [to, setTo] = useState("Visakhapatnam");
-  const [selected, setSelected] = useState<number | null>(0);
-
-  const routes: RouteOpt[] = [
-    {
-      label: "Fastest Route", tag: "Recommended",
-      time: "2h 15m", price: "₹140", crowd: "Medium",
-      buses: ["111A Express"],
-      stops: ["Srikakulam RTC Complex", "Narasannapeta", "Hanumanthawaka", "Vizag Complex"],
-      getOff: "Hanumanthawaka",
-    },
-    {
-      label: "Cheapest Route", tag: "Best Value",
-      time: "2h 45m", price: "₹80", crowd: "High",
-      buses: ["Palle Velugu 211"],
-      stops: ["Srikakulam RTC Complex", "Amadalavalasa", "Vizianagaram", "Gajuwaka", "Vizag Complex"],
-      getOff: "Vizag Complex",
-    },
-    {
-      label: "Least Crowded", tag: "Comfortable",
-      time: "2h 30m", price: "₹190", crowd: "Low",
-      buses: ["APSRTC Ultra Deluxe"],
-      stops: ["Srikakulam RTC Complex", "Tekkali Bypass", "Anakapalle", "Hanumanthawaka", "Vizag Complex"],
-      getOff: "Vizag Complex",
-    },
-  ];
-
-  return (
-    <div className="px-4 pt-3">
-      <div className="mb-3">
-        <h2 className="text-base font-bold tracking-tight">Smart Routes</h2>
-        <p className="text-[11px] text-muted-foreground">Crowd-aware terminal-to-terminal planning</p>
       </div>
 
-      {/* From / To */}
-      <div className="rounded-2xl border border-border bg-card p-3">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center pt-1">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            <span className="my-1 h-6 w-px bg-border" />
-            <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" />
-          </div>
-          <div className="flex-1 space-y-2">
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">From Terminal</label>
-              <input
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">To Destination</label>
-              <input
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-indigo-500"
-              />
-            </div>
-          </div>
-        </div>
-        <button className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-600/30 active:scale-[0.99]">
-          <Search className="h-4 w-4" /> Find Routes
-        </button>
-      </div>
+      <MapMock from={from} to={to} />
 
-      <div className="mt-3 space-y-2.5">
-        {routes.map((r, i) => (
-          <RouteCard
-            key={r.label}
-            route={r}
-            active={selected === i}
-            onClick={() => setSelected(selected === i ? null : i)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RouteCard({
-  route, active, onClick,
-}: { route: RouteOpt; active: boolean; onClick: () => void }) {
-  const crowdColor =
-    route.crowd === "Low" ? "bg-emerald-100 text-emerald-700"
-    : route.crowd === "Medium" ? "bg-amber-100 text-amber-800"
-    : "bg-rose-100 text-rose-700";
-
-  return (
-    <div className={`overflow-hidden rounded-2xl border bg-card transition ${active ? "border-indigo-600 shadow-md shadow-indigo-600/10" : "border-border"}`}>
-      <button onClick={onClick} className="w-full p-3.5 text-left">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">{route.tag}</p>
-            <h3 className="truncate text-sm font-bold">{route.label}</h3>
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              <Bus className="mr-1 inline h-3 w-3" /> {route.buses[0]}
-            </p>
-          </div>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${crowdColor}`}>
-            {route.crowd} Crowd
-          </span>
-        </div>
-        <div className="mt-2 flex items-center gap-4 text-xs">
-          <span className="flex items-center gap-1 font-bold"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> {route.time}</span>
-          <span className="flex items-center gap-1 font-bold"><IndianRupee className="h-3.5 w-3.5 text-muted-foreground" /> {route.price.replace("₹", "")}</span>
-          <span className="ml-auto text-[10px] font-semibold text-indigo-600">{active ? "Hide ▲" : "Details ▼"}</span>
-        </div>
+      <button onClick={() => setTab("routes")}
+        className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11.5px] font-bold text-indigo-700">
+        {T(lang, "showRoutes")}
+        <ChevronRight className="h-4 w-4" />
       </button>
 
-      {active && (
-        <div className="border-t border-border bg-indigo-50/30 px-3.5 py-3 animate-in fade-in slide-in-from-top-1">
-          <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            <Navigation className="h-3 w-3" /> Sequential Stops
+      {sheetOpen && <PlacesSheet lang={lang} city={to} onClose={() => setSheetOpen(false)} />}
+    </div>
+  );
+}
+
+function MapMock({ from, to }: { from: City; to: City }) {
+  return (
+    <div className="relative h-48 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-slate-50 to-indigo-50/60 shadow-sm">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <defs>
+          <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
+            <path d="M 8 0 L 0 0 0 8" fill="none" stroke="oklch(0.92 0.01 250)" strokeWidth="0.3" />
+          </pattern>
+        </defs>
+        <rect width="100" height="100" fill="url(#grid)" />
+        {/* path */}
+        <path d={`M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${Math.min(from.y, to.y) - 12}, ${to.x} ${to.y}`}
+          fill="none" stroke="oklch(0.55 0.22 270)" strokeWidth="1.2" strokeDasharray="2 1.5" />
+        {/* nodes */}
+        <g>
+          <circle cx={from.x} cy={from.y} r="2.4" fill="oklch(0.65 0.18 150)" />
+          <circle cx={to.x} cy={to.y} r="2.4" fill="oklch(0.62 0.22 20)" />
+        </g>
+      </svg>
+      <div className="absolute left-2 top-2 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 shadow-sm backdrop-blur">
+        A · {from.name}
+      </div>
+      <div className="absolute bottom-2 right-2 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 shadow-sm backdrop-blur">
+        B · {to.name}
+      </div>
+      <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+        <Navigation className="h-2.5 w-2.5" /> APSRTC
+      </div>
+    </div>
+  );
+}
+
+function PlacesSheet({ lang, city, onClose }: { lang: Lang; city: City; onClose: () => void }) {
+  type Cat = "tourist" | "food" | "medical" | "atm" | "events" | "temples";
+  const [cat, setCat] = useState<Cat>("tourist");
+  const cats: { id: Cat; label: string; icon: typeof MapPin }[] = [
+    { id: "tourist", label: T(lang, "tourist"), icon: Landmark },
+    { id: "food", label: T(lang, "food"), icon: Utensils },
+    { id: "temples", label: T(lang, "temples"), icon: Sparkles },
+    { id: "medical", label: T(lang, "medical"), icon: Hospital },
+    { id: "atm", label: T(lang, "atm"), icon: Banknote },
+    { id: "events", label: T(lang, "events"), icon: PartyPopper },
+  ];
+  const items = city.places[cat];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-indigo-600" />
+          <h3 className="text-[12px] font-bold">{T(lang, "surroundings")} • {city.name}</h3>
+        </div>
+        <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-muted">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="mb-2 flex gap-1 overflow-x-auto pb-1">
+        {cats.map(c => {
+          const active = cat === c.id;
+          const I = c.icon;
+          return (
+            <button key={c.id} onClick={() => setCat(c.id)}
+              className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold transition ${
+                active ? "bg-indigo-600 text-white" : "bg-muted text-foreground hover:bg-muted/70"
+              }`}>
+              <I className="h-3 w-3" /> {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((p, i) => (
+          <li key={i} className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11.5px] font-medium">
+            <span className="truncate">{p}</span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ============================================================
+   SMART ROUTES
+   ============================================================ */
+function SmartRoutes({ lang, from, to }: { lang: Lang; from: City; to: City }) {
+  // Generate sequential junctions between from→to using nearby cities by x distance
+  const junctions = useMemo(() => {
+    const others = CITIES.filter(c => c.id !== from.id && c.id !== to.id);
+    const between = others
+      .filter(c => Math.min(from.x, to.x) <= c.x + 8 && c.x - 8 <= Math.max(from.x, to.x))
+      .sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))
+      .slice(0, 3);
+    return [from.station, ...between.map(c => `${c.name} Junction`), to.station];
+  }, [from, to]);
+
+  const changeIdx = Math.max(1, Math.floor(junctions.length / 2));
+
+  // Pseudo bus numbers from from+to
+  const seed = (from.id + to.id).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  const busNo = (offset: number) => 1000 + ((seed * (offset + 7)) % 8999);
+
+  const opts = [
+    { kind: "fastest", label: T(lang, "fastest"), bus: `APSRTC ${busNo(1)} — ${T(lang, "fleetAC")}`,
+      time: "4h 35m", price: 720, crowd: "low" as const, color: "indigo" as const, badge: <Sparkles className="h-3 w-3" /> },
+    { kind: "cheapest", label: T(lang, "cheapest"), bus: `APSRTC ${busNo(2)} — ${T(lang, "fleetPV")}`,
+      time: "6h 10m", price: 285, crowd: "high" as const, color: "emerald" as const, badge: <IndianRupee className="h-3 w-3" /> },
+    { kind: "leastCrowd", label: T(lang, "leastCrowd"), bus: `APSRTC ${busNo(3)} — ${T(lang, "fleetSL")}`,
+      time: "5h 05m", price: 480, crowd: "medium" as const, color: "rose" as const, badge: <Users className="h-3 w-3" /> },
+  ];
+  const [open, setOpen] = useState<string>("fastest");
+
+  return (
+    <div className="space-y-3 px-3 py-3">
+      <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 p-3 text-white shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">{T(lang, "routes")}</p>
+        <p className="mt-0.5 text-[13px] font-bold leading-tight">{from.name} → {to.name}</p>
+        <p className="text-[10px] opacity-80">{from.station} → {to.station}</p>
+      </div>
+
+      {opts.map(o => (
+        <RouteCard key={o.kind} lang={lang} opt={o} open={open === o.kind} onToggle={() => setOpen(open === o.kind ? "" : o.kind)}
+          junctions={junctions} changeIdx={changeIdx} />
+      ))}
+    </div>
+  );
+}
+
+function RouteCard({ lang, opt, open, onToggle, junctions, changeIdx }: {
+  lang: Lang; open: boolean; onToggle: () => void; junctions: string[]; changeIdx: number;
+  opt: { kind: string; label: string; bus: string; time: string; price: number; crowd: "low" | "medium" | "high"; color: "indigo" | "emerald" | "rose"; badge: React.ReactNode };
+}) {
+  const crowdMap = {
+    low: { txt: T(lang, "crowdLow"), c: "bg-emerald-100 text-emerald-700" },
+    medium: { txt: T(lang, "crowdMed"), c: "bg-amber-100 text-amber-700" },
+    high: { txt: T(lang, "crowdHigh"), c: "bg-rose-100 text-rose-700" },
+  }[opt.crowd];
+  const accent = { indigo: "border-indigo-300 bg-indigo-50", emerald: "border-emerald-300 bg-emerald-50", rose: "border-rose-300 bg-rose-50" }[opt.color];
+  const accentText = { indigo: "text-indigo-700", emerald: "text-emerald-700", rose: "text-rose-700" }[opt.color];
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border ${accent} shadow-sm transition`}>
+      <button onClick={onToggle} className="flex w-full items-start justify-between gap-2 p-3 text-left">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold ${accentText}`}>
+              {opt.badge} {opt.label}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${crowdMap.c}`}>{crowdMap.txt}</span>
           </div>
-          <ol className="space-y-1">
-            {route.stops.map((s, i) => {
-              const isOff = s === route.getOff;
+          <p className="mt-1.5 truncate text-[12px] font-bold">{opt.bus}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[10.5px] font-medium text-muted-foreground">
+            <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" /> {opt.time}</span>
+            <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" /> ₹{opt.price}</span>
+            <span className="text-[10px] opacity-70">{open ? "—" : T(lang, "expand")}</span>
+          </div>
+        </div>
+        <ChevronRight className={`mt-1 h-4 w-4 shrink-0 text-muted-foreground transition ${open ? "rotate-90" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-border/60 bg-white px-3 py-3">
+          <ol className="space-y-2">
+            {junctions.map((j, i) => {
+              const isStart = i === 0;
+              const isEnd = i === junctions.length - 1;
+              const isChange = i === changeIdx;
               return (
-                <li key={s} className="flex items-center gap-2 text-xs">
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
-                    isOff ? "bg-rose-500 text-white" : "bg-secondary text-secondary-foreground"
-                  }`}>{i + 1}</span>
-                  <span className={isOff ? "font-bold text-rose-600" : "font-medium"}>{s}</span>
-                  {isOff && (
-                    <span className="ml-auto rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                      GET DOWN
-                    </span>
-                  )}
+                <li key={i} className="relative flex gap-2">
+                  <div className="flex flex-col items-center">
+                    <div className={`h-3 w-3 rounded-full border-2 ${isEnd ? "border-rose-500 bg-rose-500" : isStart ? "border-emerald-500 bg-emerald-500" : isChange ? "border-amber-500 bg-amber-500" : "border-indigo-400 bg-white"}`} />
+                    {!isEnd && <div className="my-0.5 w-0.5 flex-1 bg-indigo-200" style={{ minHeight: 18 }} />}
+                  </div>
+                  <div className="flex-1 pb-1">
+                    <p className="text-[11.5px] font-semibold leading-tight">{j}</p>
+                    {isEnd && <p className="mt-0.5 inline-block rounded-md bg-rose-100 px-1.5 py-0.5 text-[9.5px] font-bold text-rose-700">{T(lang, "getDown")}</p>}
+                    {isChange && !isEnd && <p className="mt-0.5 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-bold text-amber-700">{T(lang, "changeBus")}</p>}
+                  </div>
                 </li>
               );
             })}
@@ -570,253 +579,214 @@ function RouteCard({
   );
 }
 
-/* ---------- 3. Safety ---------- */
-function Safety() {
-  const [sosState, setSosState] = useState<"idle" | "sending" | "sent">("idle");
-  const [sharing, setSharing] = useState(false);
-  const alerts = [
-    { type: "good", text: "Maddilapalem Station: Well-lit platform with police checkpoint active", time: "5 min ago", by: "Priya" },
-    { type: "warn", text: "Heavy crowd reported at RTC Complex Terminal", time: "12 min ago", by: "Anil" },
-    { type: "good", text: "Police patrol seen at Jagadamba Junction", time: "32 min ago", by: "Lakshmi" },
-    { type: "warn", text: "Avoid isolated stretch near NAD Kotha Road after 9 PM", time: "1 hr ago", by: "Community" },
-  ];
+/* ============================================================
+   SAFETY HUB
+   ============================================================ */
+function Safety({ lang, to }: { lang: Lang; to: City }) {
+  const [sosState, setSosState] = useState<"idle" | "loading" | "sent">("idle");
+  const [liveShared, setLiveShared] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const link = "naatransit.ap.gov.in/live/track-391";
 
   const triggerSOS = () => {
-    setSosState("sending");
-    setTimeout(() => {
-      setSosState("sent");
-      if (typeof window !== "undefined") {
-        window.alert(
-          "🚨 SOS BROADCAST SENT\n\nSMS dispatched to 3 family contacts:\n• Amma (+91 98XXX XX123)\n• Nanna (+91 98XXX XX456)\n• Bro (+91 99XXX XX789)\n\nLive coordinates: 17.6868° N, 83.2185° E\nNearest help: Maddilapalem Police Station (0.6 km)"
-        );
-      }
-    }, 900);
+    if (sosState !== "idle") return;
+    setSosState("loading");
+    setTimeout(() => setSosState("sent"), 1400);
+  };
+
+  const copyLink = () => {
+    try { navigator.clipboard?.writeText(link); } catch {}
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
 
   return (
-    <div className="space-y-3 px-4 pt-3">
-      <div>
-        <h2 className="text-base font-bold tracking-tight">Guardian Safety Hub</h2>
-        <p className="text-[11px] text-muted-foreground">Always with you on the road</p>
-      </div>
-
-      {/* SOS */}
-      <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-card p-4 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg shadow-rose-500/40">
-          <AlertTriangle className="h-6 w-6" />
-        </div>
-        <h2 className="mt-2 text-base font-bold">Emergency SOS Alert</h2>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Broadcasts your live location via SMS to 3 saved family contacts.
-        </p>
-        <button
-          onClick={triggerSOS}
-          disabled={sosState !== "idle"}
-          className={`mt-3 w-full rounded-xl py-3 text-sm font-bold text-white transition active:scale-[0.98] ${
-            sosState === "sent"
-              ? "bg-emerald-500"
-              : sosState === "sending"
-              ? "bg-rose-400 animate-pulse"
-              : "bg-rose-500 shadow-lg shadow-rose-500/30"
-          }`}
-        >
-          {sosState === "sent"
-            ? "✓ SOS Sent — Help is on the way"
-            : sosState === "sending"
-            ? "Sending Urgent Coordinates..."
-            : "TAP TO SEND SOS"}
+    <div className="space-y-3 px-3 py-3">
+      {/* SOS Button */}
+      <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100/60 p-4 text-center shadow-sm">
+        <button onClick={triggerSOS} disabled={sosState !== "idle"}
+          className={`mx-auto flex h-28 w-28 items-center justify-center rounded-full text-white shadow-lg transition ${
+            sosState === "idle" ? "bg-rose-600 hover:bg-rose-700 active:scale-95" :
+            sosState === "loading" ? "bg-rose-500 animate-pulse" : "bg-emerald-600"
+          }`}>
+          {sosState === "loading" ? <Loader2 className="h-10 w-10 animate-spin" /> :
+           sosState === "sent" ? <Check className="h-10 w-10" /> :
+           <ShieldAlert className="h-10 w-10" />}
         </button>
-      </div>
-
-      {/* Share Live Journey */}
-      <div className="rounded-2xl border border-border bg-card p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-              <Share2 className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Share Live Journey Link</p>
-              <p className="text-[11px] text-muted-foreground">Lightweight tracking via SMS link</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setSharing(!sharing)}
-            className={`relative h-7 w-12 shrink-0 rounded-full transition ${sharing ? "bg-emerald-500" : "bg-slate-300"}`}
-          >
-            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${sharing ? "left-[22px]" : "left-0.5"}`} />
-          </button>
-        </div>
-        {sharing && (
-          <div className="mt-2.5 flex items-center justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs">
-            <span className="truncate font-mono text-emerald-800">naa.tr/j/9KX2P-vzg</span>
-            <button className="shrink-0 font-bold text-emerald-700">Copy</button>
+        <p className="mt-2 text-[13px] font-bold text-rose-700">{T(lang, "sosTitle")}</p>
+        <p className="text-[10.5px] text-muted-foreground">{T(lang, "sosHint")}</p>
+        {sosState === "sent" && (
+          <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-left text-[10.5px] font-medium text-emerald-800">
+            <PhoneCall className="mr-1 inline h-3 w-3" /> {T(lang, "sosSent")}
           </div>
         )}
       </div>
 
-      {/* Quick contacts */}
-      <div className="grid grid-cols-2 gap-2">
-        <button className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold">
-          <PhoneCall className="h-4 w-4 text-emerald-600" /> Call 112
-        </button>
-        <button className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold">
-          <ShieldCheck className="h-4 w-4 text-indigo-600" /> Women 181
-        </button>
+      {/* Live Journey */}
+      <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Share2 className="h-4 w-4 text-indigo-600" />
+            <p className="text-[12px] font-bold">{T(lang, "liveJourney")}</p>
+          </div>
+          <button onClick={() => setLiveShared(!liveShared)}
+            className={`relative h-5 w-9 rounded-full transition ${liveShared ? "bg-indigo-600" : "bg-muted"}`}>
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${liveShared ? "left-4.5 translate-x-0" : "left-0.5"}`} style={{ left: liveShared ? "1.125rem" : "0.125rem" }} />
+          </button>
+        </div>
+        {liveShared && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[9.5px] font-bold uppercase text-indigo-700">{T(lang, "linkCopied")}</p>
+              <p className="truncate text-[11px] font-medium text-indigo-900">{link}</p>
+            </div>
+            <button onClick={copyLink} className="flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-bold text-white">
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {copied ? T(lang, "copied") : T(lang, "copy")}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Women Safety Alerts Feed */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-bold">Women Safety Alerts</h3>
-          <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
-            <Bell className="h-3 w-3" /> Community Feed
-          </span>
+      {/* Women safety feed */}
+      <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+        <div className="mb-2 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+          <p className="text-[12px] font-bold">{T(lang, "womenSafety")}</p>
         </div>
-        <ul className="space-y-2">
-          {alerts.map((a, i) => (
-            <li key={i} className="flex items-start gap-3 rounded-xl border border-border bg-card p-2.5">
-              <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${a.type === "good" ? "bg-emerald-500" : "bg-amber-500"}`} />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs leading-snug">{a.text}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  <span className="font-semibold">{a.by}</span> • {a.time}
-                </p>
-              </div>
+        <p className="mb-2 text-[10px] font-semibold text-muted-foreground">{to.name} • {to.district}</p>
+        <ul className="space-y-1.5">
+          {to.safety.map((s, i) => (
+            <li key={i} className="flex items-start gap-2 rounded-lg bg-emerald-50/70 px-2.5 py-1.5">
+              <Bell className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+              <p className="text-[11px] font-medium text-emerald-900">{s}</p>
             </li>
           ))}
+          <li className="flex items-start gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+            <p className="text-[11px] font-medium text-amber-900">Avoid unlit alley behind Bay 9 after 10 PM</p>
+          </li>
         </ul>
       </div>
     </div>
   );
 }
 
-/* ---------- 4. AI Assistant ---------- */
-type Msg = { id: number; role: "user" | "bot"; text: string; rich?: boolean };
+/* ============================================================
+   AI ASSISTANT
+   ============================================================ */
+type Msg = { who: "user" | "bot"; text: string; rich?: { bus: string; eta: string; platform: string; stop: string } };
 
-function AIAssistant({ setRouteLabel }: { setRouteLabel: (s: string) => void }) {
-  const [messages, setMessages] = useState<Msg[]>([
-    { id: 1, role: "bot", text: "Namaste 🙏 I'm your offline-capable travel assistant. Ask me about buses, routes, or timings in Srikakulam & Vizag." },
-  ]);
+function AIAssistant({ lang, from, to, setFrom, setTo }: { lang: Lang; from: City; to: City; setFrom: (c: City) => void; setTo: (c: City) => void }) {
   const [input, setInput] = useState("");
+  const [msgs, setMsgs] = useState<Msg[]>([
+    { who: "bot", text: lang === "te" ? "నమస్తే! మీ APSRTC ప్రయాణం గురించి అడగండి." : lang === "hi" ? "नमस्ते! अपनी APSRTC यात्रा के बारे में पूछें।" : "Namaste! Ask anything about your APSRTC journey." },
+  ]);
 
   const suggestions = [
-    "How do I go from Srikakulam to Vizag Car Shed?",
-    "Last bus from RTC Complex to Gajuwaka?",
-    "Cheapest route to Araku Valley?",
+    lang === "te" ? `${from.name} నుండి ${to.name}కి ఎలా వెళ్లాలి?` :
+    lang === "hi" ? `${from.name} से ${to.name} कैसे जाएं?` :
+    `How to reach ${to.name} from ${from.name}?`,
+    lang === "te" ? "విజయవాడ → తిరుపతి బస్సు?" : lang === "hi" ? "विजयवाड़ा → तिरुपति बस?" : "Bus to Tirupati from Vijayawada?",
+    lang === "te" ? "విశాఖపట్నం → కాకినాడ" : lang === "hi" ? "विशाखापत्तनम → काकीनाडा" : "Vizag → Kakinada fastest?",
   ];
 
-  const ask = (text: string) => {
+  const respond = (q: string) => {
+    // Try to parse "X to Y" / "X → Y"
+    const lower = q.toLowerCase();
+    const matched = CITIES.filter(c => c.aliases.some(a => lower.includes(a)) || lower.includes(c.name.toLowerCase()));
+    let f = from, t = to;
+    if (matched.length >= 2) { f = matched[0]; t = matched[1]; setFrom(f); setTo(t); }
+    else if (matched.length === 1) { t = matched[0]; setTo(t); }
+
+    const seed = (f.id + t.id).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+    const bus = `APSRTC ${1000 + (seed * 13) % 8999} — ${T(lang, "fleetAC")}`;
+    const eta = `${8 + (seed % 12)} ${lang === "te" ? "నిమి" : lang === "hi" ? "मिनट" : "mins"}`;
+    const platform = `${(seed % 9) + 1}`;
+    const stop = t.station;
+    return { bus, eta, platform, stop };
+  };
+
+  const send = (text: string) => {
     if (!text.trim()) return;
-    const userMsg: Msg = { id: Date.now(), role: "user", text };
-    setMessages((m) => [...m, userMsg]);
+    const rich = respond(text);
+    setMsgs(m => [...m,
+      { who: "user", text },
+      { who: "bot", text: T(lang, "mapInit"), rich },
+    ]);
     setInput("");
-
-    const lower = text.toLowerCase();
-    const isCarShed = lower.includes("car shed") || lower.includes("vizag car");
-
-    if (isCarShed) setRouteLabel("Srikakulam → Vizag Car Shed");
-
-    setTimeout(() => {
-      const replyText = isCarShed
-        ? "Take Bus 111A → Expected Arrival: 10 mins → Map route initialized → Get down at Hanumanthawaka Junction."
-        : lower.includes("araku")
-        ? "Cheapest: APSRTC Pallevelugu via Anantagiri → 4h 30m → ₹160 → Get down at Araku Bus Stand."
-        : lower.includes("gajuwaka")
-        ? "Last bus 28A departs RTC Complex at 22:45 → 35 mins → Get down at Gajuwaka Junction."
-        : "Based on cached schedules: nearest bus departs in ~12 mins. Tap Smart Routes for alternates.";
-      const reply: Msg = {
-        id: Date.now() + 1,
-        role: "bot",
-        rich: isCarShed || lower.includes("vizag") || lower.includes("gajuwaka") || lower.includes("araku"),
-        text: replyText,
-      };
-      setMessages((m) => [...m, reply]);
-    }, 600);
-
   };
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border bg-indigo-50/40 px-4 py-2.5">
+      <div className="border-b border-border bg-card px-3 py-2">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+            <Bot className="h-4 w-4" />
           </div>
-          <div>
-            <p className="text-xs font-bold">AI Travel Assistant</p>
-            <p className="text-[10px] text-emerald-600 font-semibold">● Online • Offline-capable</p>
-          </div>
+          <p className="text-[12px] font-bold">{T(lang, "aiTitle")}</p>
         </div>
       </div>
 
-      <div className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50/50 px-3 py-3">
-        {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "bot" && (
-              <div className="mr-1.5 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-            )}
-            <div
-              className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs shadow-sm ${
-                m.role === "user"
-                  ? "rounded-br-sm bg-indigo-600 text-white"
-                  : "rounded-bl-sm bg-card text-foreground"
-              }`}
-            >
-              {m.rich ? <RichBotReply text={m.text} /> : m.text}
+      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        {msgs.map((m, i) =>
+          m.who === "user" ? (
+            <div key={i} className="ml-auto max-w-[80%] rounded-2xl rounded-tr-sm bg-indigo-600 px-3 py-1.5 text-[11.5px] font-medium text-white shadow-sm">
+              {m.text}
             </div>
-          </div>
-        ))}
+          ) : (
+            <div key={i} className="mr-auto max-w-[88%] space-y-1.5">
+              <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-3 py-1.5 text-[11.5px] font-medium shadow-sm">
+                {m.text}
+              </div>
+              {m.rich && <RichBotReply lang={lang} {...m.rich} />}
+            </div>
+          )
+        )}
       </div>
 
-      {/* Suggested chips */}
-      <div className="border-t border-border bg-card px-3 pb-1.5 pt-2">
-        <div className="flex gap-1.5 overflow-x-auto pb-1.5">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              onClick={() => ask(s)}
-              className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100"
-            >
-              {s}
+      {/* Suggestions */}
+      <div className="border-t border-border bg-muted/30 px-3 py-2">
+        <p className="mb-1 text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">{T(lang, "suggested")}</p>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {suggestions.map((s, i) => (
+            <button key={i} onClick={() => send(s)}
+              className="shrink-0 rounded-full border border-indigo-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50">
+              <Lightbulb className="mr-1 inline h-3 w-3" /> {s}
             </button>
           ))}
         </div>
-
-        {/* Composer */}
-        <div className="flex items-center gap-2 pb-1">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && ask(input)}
-            placeholder="Ask anything about transit…"
-            className="flex-1 rounded-full border border-border bg-background px-3.5 py-2 text-xs outline-none focus:border-indigo-500"
-          />
-          <button
-            onClick={() => ask(input)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 active:scale-95"
-          >
+        <form onSubmit={e => { e.preventDefault(); send(input); }} className="mt-1.5 flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1">
+          <input value={input} onChange={e => setInput(e.target.value)} placeholder={T(lang, "aiPlaceholder")}
+            className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground" />
+          <button type="submit" className="rounded-full bg-indigo-600 p-1.5 text-white shadow-sm">
             <Send className="h-3.5 w-3.5" />
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );
 }
 
-function RichBotReply({ text }: { text: string }) {
-  const parts = text.split(" → ");
-  const icons = [Bus, Clock, MapIcon, ArrowRight];
+function RichBotReply({ lang, bus, eta, platform, stop }: { lang: Lang; bus: string; eta: string; platform: string; stop: string }) {
+  const rows = [
+    { icon: Bus, label: bus, k: "indigo" },
+    { icon: Clock, label: `${T(lang, "busArrives")}: ${eta}`, k: "emerald" },
+    { icon: MapPin, label: `${T(lang, "platform")}: ${platform}`, k: "amber" },
+    { icon: ArrowRight, label: `${T(lang, "destinationStop")}: ${stop}`, k: "rose" },
+  ];
+  const colorMap: Record<string, string> = {
+    indigo: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+    rose: "bg-rose-50 text-rose-700 border-rose-200",
+  };
   return (
-    <div className="space-y-1.5">
-      {parts.map((p, i) => {
-        const Icon = icons[i] ?? ArrowRight;
+    <div className="space-y-1 rounded-2xl border border-border bg-white p-2 shadow-sm">
+      {rows.map((r, i) => {
+        const I = r.icon;
         return (
-          <div key={i} className="flex items-start gap-1.5 rounded-lg bg-indigo-50 px-2 py-1.5">
-            <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-600" />
-            <span className="text-[11px] font-medium leading-snug text-foreground">{p}</span>
+          <div key={i} className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${colorMap[r.k]}`}>
+            <I className="h-3.5 w-3.5 shrink-0" />
+            <p className="text-[11px] font-semibold">{r.label}</p>
           </div>
         );
       })}
