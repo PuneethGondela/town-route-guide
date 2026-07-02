@@ -8,6 +8,8 @@ import {
   Share2, ShieldCheck, Send, Sparkles, Navigation, ChevronRight, Bell,
   Languages, Copy, Loader2, Check, Lightbulb, ShieldAlert, Crown, Zap, Wallet,
 } from "lucide-react";
+import { CITIES, findCity as findCityTransit, type City, ROUTES, type RouteStatic } from "@/lib/transit-data";
+import { getNearbyPlaces } from "@/lib/api/transit.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -92,100 +94,20 @@ const T = (lang: Lang, key: DictKey) => DICT[key][lang];
 /* ============================================================
    AP-WIDE LOCATION GRAPH
    ============================================================ */
-type City = {
-  id: string; name: string; aliases: string[]; station: string;
-  x: number; y: number; district: string;
-  places: { tourist: string[]; food: string[]; medical: string[]; atm: string[]; events: string[]; temples: string[] };
-  safety: string[];
-};
-
-const CITIES: City[] = [
-  { id: "vja", name: "Vijayawada", aliases: ["vijayawada", "bzv", "bezawada", "pnbs"], station: "Pundit Nehru Bus Station (PNBS)", x: 42, y: 50, district: "NTR",
-    places: {
-      tourist: ["Kanaka Durga Temple View", "Prakasam Barrage", "Bhavani Island"],
-      food: ["Babai Hotel (Andhra Meals)", "RR Durbar Biryani", "Minerva Coffee Shop"],
-      medical: ["Government General Hospital", "Manipal Hospitals Vijayawada"],
-      atm: ["SBI PNBS Branch", "Andhra Bank One Town"],
-      events: ["Krishna Pushkaralu Drill", "Kanaka Durga Brahmotsavam"],
-      temples: ["Kanaka Durga Devasthanam", "Hinkar Thirtha Jain Temple"],
-    },
-    safety: ["Well-lit Platform 4", "Police patrolling near Bay 7", "CCTV active at exit gate"] },
-  { id: "tpt", name: "Tirupati", aliases: ["tirupati", "tirumala", "alipiri"], station: "Sri Venkateswara Central Bus Station", x: 55, y: 88, district: "Tirupati",
-    places: {
-      tourist: ["Sri Venkateswara Museum", "Silathoranam Rock", "Chandragiri Fort"],
-      food: ["Maya Hotel (Pure Veg)", "Bhimas Deluxe", "Aaha Tiffins"],
-      medical: ["SVIMS Hospital", "BIRRD Hospital"],
-      atm: ["SBI Alipiri Branch", "Indian Bank Tirumala"],
-      events: ["Brahmotsavam Procession", "Vaikunta Ekadasi Queue Drill"],
-      temples: ["Sri Venkateswara Temple", "Govindaraja Swamy Temple", "Kapila Theertham"],
-    },
-    safety: ["Devasthanam police active", "Women help desk near Q-complex", "Free shuttle till 11 PM"] },
-  { id: "vzg", name: "Visakhapatnam", aliases: ["vizag", "vsp", "visakhapatnam", "vskp"], station: "Dwaraka Bus Station (RTC Complex)", x: 78, y: 25, district: "Visakhapatnam",
-    places: {
-      tourist: ["RK Beach", "Kailasagiri", "Submarine Museum"],
-      food: ["Sea Inn Beachside", "Dharani Restaurant", "Bay Of Bengal Cafe"],
-      medical: ["KGH Hospital", "Apollo Health City"],
-      atm: ["SBI RTC Complex", "Canara Bank Dwaraka Nagar"],
-      events: ["Visakha Utsav", "Navy Day Air Show"],
-      temples: ["Simhachalam Temple", "ISKCON Vizag"],
-    },
-    safety: ["Beach patrol till midnight", "Well-lit Dwaraka platform", "Pink auto stand active"] },
-  { id: "skl", name: "Srikakulam", aliases: ["srikakulam", "skl", "ckl"], station: "Srikakulam RTC Complex", x: 88, y: 15, district: "Srikakulam",
-    places: {
-      tourist: ["Salihundam Buddhist Site", "Kalingapatnam Beach", "Telineelapuram Bird Sanctuary"],
-      food: ["Hotel Maurya", "Sri Krishna Tiffins", "Konaseema Mess"],
-      medical: ["RIMS Srikakulam", "Government District Hospital"],
-      atm: ["SBI Main Branch", "Union Bank Town"],
-      events: ["Srikakulam Utsavalu", "Arasavalli Ratha Yatra"],
-      temples: ["Arasavalli Sun Temple", "Srikurmam Temple"],
-    },
-    safety: ["RTC night patrol", "Helpline kiosk active", "Women coach in 8841"] },
-  { id: "gnt", name: "Guntur", aliases: ["guntur", "gnt"], station: "NTR Bus Stand Guntur", x: 40, y: 56, district: "Guntur",
-    places: {
-      tourist: ["Amaravati Stupa", "Undavalli Caves", "Kondaveedu Fort"],
-      food: ["RR Hotel (Guntur Karam)", "Nellore Ruchulu", "Sangam Sweets"],
-      medical: ["Government General Hospital Guntur", "Lalitha Super Speciality"],
-      atm: ["Andhra Bank Brodipet", "SBI Arundelpet"],
-      events: ["Mirchi Yard Festival", "Amaravati Heritage Walk"],
-      temples: ["Kotappakonda", "Mangalagiri Narasimha Swamy"],
-    },
-    safety: ["Bus stand pink booth", "Bay 3 CCTV active", "Patrol from 5 AM"] },
-  { id: "nlr", name: "Nellore", aliases: ["nellore", "nlr"], station: "Nellore RTC Complex", x: 50, y: 76, district: "Nellore",
-    places: {
-      tourist: ["Pulicat Lake", "Mypadu Beach", "Nelapattu Bird Sanctuary"],
-      food: ["Nellore Ruchulu", "Sri Anjaneya Tiffins", "Hotel Bahar"],
-      medical: ["ACSR Govt Hospital", "Narayana Medical College"],
-      atm: ["SBI Trunk Road", "Andhra Bank Stonehousepet"],
-      events: ["Rottela Panduga", "Mypadu Beach Fest"],
-      temples: ["Ranganathaswamy Temple", "Jonnawada Kamakshi"],
-    },
-    safety: ["Late-night patrol active", "Well-lit RTC bays", "Help desk till 11 PM"] },
-  { id: "krn", name: "Kurnool", aliases: ["kurnool", "krn"], station: "Kurnool Bus Station", x: 22, y: 60, district: "Kurnool",
-    places: {
-      tourist: ["Belum Caves", "Oravakallu Rock Garden", "Konda Reddy Fort"],
-      food: ["Hotel Geetha", "Tunga Restaurant", "Sapthagiri Tiffins"],
-      medical: ["Kurnool Government Hospital", "Viswabharathi Hospital"],
-      atm: ["SBI Park Road", "Canara Bank Main"],
-      events: ["Mahanandi Brahmotsavam", "Banaganapalle Mango Fest"],
-      temples: ["Mahanandi Temple", "Yaganti Uma Maheswara"],
-    },
-    safety: ["RTC night marshals", "Women bay near platform 2", "Pink auto stand"] },
-  { id: "kkd", name: "Kakinada", aliases: ["kakinada", "kkd"], station: "Kakinada Bus Complex", x: 62, y: 42, district: "Kakinada",
-    places: {
-      tourist: ["Hope Island", "Coringa Mangroves", "Uppada Beach"],
-      food: ["Subbayya Gari Hotel", "Kakinada Kaja House", "Hotel Sarovar"],
-      medical: ["GGH Kakinada", "Apollo Speciality"],
-      atm: ["SBI Main Road", "Indian Bank Bhanugudi"],
-      events: ["Sarpavaram Jatara", "Coringa Bird Festival"],
-      temples: ["Sri Bhavanarayana Temple", "Pithapuram Kukkuteswara"],
-    },
-    safety: ["Coastal patrol active", "Bay 5 well-lit", "Women help desk 24/7"] },
-];
-
 const findCity = (q: string): City | null => {
   const s = q.trim().toLowerCase();
-  if (!s) return null;
-  return CITIES.find(c => c.name.toLowerCase() === s || c.aliases.some(a => s.includes(a) || a.includes(s))) || null;
+  return s ? findCityTransit(s) : null;
+};
+
+const LAT_MIN = Math.min(...CITIES.map((c) => c.lat));
+const LAT_MAX = Math.max(...CITIES.map((c) => c.lat));
+const LON_MIN = Math.min(...CITIES.map((c) => c.lon));
+const LON_MAX = Math.max(...CITIES.map((c) => c.lon));
+
+const scalePoint = (lat: number, lon: number) => {
+  const x = ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * 92 + 4;
+  const y = 96 - ((lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * 92;
+  return { x, y };
 };
 
 /* ============================================================
@@ -414,16 +336,16 @@ function HomeMap({
 }
 
 function MapMock({ from, to }: { from: City; to: City }) {
-  // smooth curved bezier with control point offset
-  const midX = (from.x + to.x) / 2;
-  const midY = (from.y + to.y) / 2;
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+  const fromPoint = scalePoint(from.lat, from.lon);
+  const toPoint = scalePoint(to.lat, to.lon);
+  const midX = (fromPoint.x + toPoint.x) / 2;
+  const midY = (fromPoint.y + toPoint.y) / 2;
+  const dx = toPoint.x - fromPoint.x;
+  const dy = toPoint.y - fromPoint.y;
   const len = Math.max(Math.hypot(dx, dy), 1);
-  // perpendicular offset for curve
   const cx = midX + (-dy / len) * 12;
   const cy = midY + (dx / len) * 12;
-  const path = `M ${from.x} ${from.y} Q ${cx} ${cy}, ${to.x} ${to.y}`;
+  const path = `M ${fromPoint.x} ${fromPoint.y} Q ${cx} ${cy}, ${toPoint.x} ${toPoint.y}`;
 
   return (
     <div className="relative h-52 overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 shadow-sm">
@@ -444,18 +366,15 @@ function MapMock({ from, to }: { from: City; to: City }) {
         </defs>
         <rect width="100" height="100" fill="url(#grid)" />
         <circle cx={midX} cy={midY} r="22" fill="url(#halo)" />
-        {/* glow path */}
         <path d={path} fill="none" stroke="url(#pathGrad)" strokeWidth="2.4" strokeLinecap="round" opacity="0.25" />
-        {/* main dotted path */}
         <path d={path} fill="none" stroke="url(#pathGrad)" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="1.6 1.4">
           <animate attributeName="stroke-dashoffset" values="0;-12" dur="6s" repeatCount="indefinite" />
         </path>
-        {/* nodes */}
         <g>
-          <circle cx={from.x} cy={from.y} r="3.4" fill="white" />
-          <circle cx={from.x} cy={from.y} r="2.2" fill="oklch(0.65 0.18 150)" />
-          <circle cx={to.x} cy={to.y} r="3.4" fill="white" />
-          <circle cx={to.x} cy={to.y} r="2.2" fill="oklch(0.62 0.22 20)" />
+          <circle cx={fromPoint.x} cy={fromPoint.y} r="3.4" fill="white" />
+          <circle cx={fromPoint.x} cy={fromPoint.y} r="2.2" fill="oklch(0.65 0.18 150)" />
+          <circle cx={toPoint.x} cy={toPoint.y} r="3.4" fill="white" />
+          <circle cx={toPoint.x} cy={toPoint.y} r="2.2" fill="oklch(0.62 0.22 20)" />
         </g>
       </svg>
 
@@ -486,7 +405,24 @@ function PlacesSheet({ lang, city, onClose }: { lang: Lang; city: City; onClose:
     { id: "atm", label: T(lang, "atm"), icon: Banknote },
     { id: "events", label: T(lang, "events"), icon: PartyPopper },
   ];
-  const items = city.places[cat];
+  const [items, setItems] = useState<Array<{ name: string; type: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+    setLoading(true);
+    getNearbyPlaces({ cityId: city.id, category: cat })
+      .then((result) => {
+        if (!canceled) setItems(result ?? []);
+      })
+      .catch(() => {
+        if (!canceled) setItems([]);
+      })
+      .finally(() => {
+        if (!canceled) setLoading(false);
+      });
+    return () => { canceled = true; };
+  }, [city.id, cat]);
 
   return (
     <div className="animate-fade-in rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur">
@@ -518,14 +454,20 @@ function PlacesSheet({ lang, city, onClose }: { lang: Lang; city: City; onClose:
           );
         })}
       </div>
-      <ul className="space-y-1.5">
-        {items.map((p, i) => (
-          <li key={i} className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-2.5 py-2 text-[11.5px] font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50/40">
-            <span className="truncate">{p}</span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-600" />
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-4 text-[11px] font-semibold text-slate-600">Loading nearby places…</div>
+      ) : items.length === 0 ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-4 text-[11px] font-semibold text-amber-800">No nearby places found for this category yet.</div>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((p, i) => (
+            <li key={i} className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-2.5 py-2 text-[11.5px] font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50/40">
+              <span className="truncate">{p.name}</span>
+              <ChevronRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-600" />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -534,14 +476,21 @@ function PlacesSheet({ lang, city, onClose }: { lang: Lang; city: City; onClose:
    SMART ROUTES
    ============================================================ */
 function SmartRoutes({ lang, from, to }: { lang: Lang; from: City; to: City }) {
+  const fromPoint = scalePoint(from.lat, from.lon);
+  const toPoint = scalePoint(to.lat, to.lon);
   const junctions = useMemo(() => {
     const others = CITIES.filter(c => c.id !== from.id && c.id !== to.id);
     const between = others
-      .filter(c => Math.min(from.x, to.x) <= c.x + 8 && c.x - 8 <= Math.max(from.x, to.x))
-      .sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))
-      .slice(0, 3);
+      .map((c) => ({
+        city: c,
+        point: scalePoint(c.lat, c.lon),
+      }))
+      .filter(({ point }) => Math.min(fromPoint.x, toPoint.x) <= point.x + 8 && point.x - 8 <= Math.max(fromPoint.x, toPoint.x))
+      .sort((a, b) => Math.hypot(a.point.x - fromPoint.x, a.point.y - fromPoint.y) - Math.hypot(b.point.x - fromPoint.x, b.point.y - fromPoint.y))
+      .slice(0, 3)
+      .map(({ city }) => city);
     return [from.station, ...between.map(c => `${c.name} Junction`), to.station];
-  }, [from, to]);
+  }, [from, to, fromPoint.x, fromPoint.y, toPoint.x, toPoint.y]);
 
   const changeIdx = Math.max(1, Math.floor(junctions.length / 2));
   const seed = (from.id + to.id).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
@@ -559,7 +508,21 @@ function SmartRoutes({ lang, from, to }: { lang: Lang; from: City; to: City }) {
       bus: `APSRTC ${busNo(3)}`, time: "6h 10m", price: 285, crowd: "high" as const, tier: "pv" as const,
       perks: ["All village stops", "Budget fare"] },
   ];
-  const [open, setOpen] = useState<string>("ac");
+  const matchingRoutes = useMemo(
+    () => ROUTES.filter((route) => route.originId === from.id && route.destinationId === to.id),
+    [from.id, to.id],
+  );
+
+  if (matchingRoutes.length === 0) {
+    return (
+      <div className="space-y-3 px-3 py-3">
+        <div className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-5 text-center text-amber-900 shadow-sm">
+          <p className="text-sm font-bold">No verified route data for this corridor yet.</p>
+          <p className="mt-2 text-[12px] text-amber-800/90">{from.name} → {to.name} is not yet covered with real sourced schedule data. We only show routes once they are verified.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 px-3 py-3">
@@ -573,91 +536,32 @@ function SmartRoutes({ lang, from, to }: { lang: Lang; from: City; to: City }) {
         </div>
       </div>
 
-      {opts.map(o => (
-        <RouteCard key={o.kind} lang={lang} opt={o} open={open === o.kind} onToggle={() => setOpen(open === o.kind ? "" : o.kind)}
-          junctions={junctions} changeIdx={changeIdx} />
+      {matchingRoutes.map((route) => (
+        <StaticRouteCard key={route.id} lang={lang} route={route} />
       ))}
     </div>
   );
 }
 
-type RouteOpt = {
-  kind: string; label: string; tag: string; bus: string; time: string; price: number;
-  crowd: "low" | "medium" | "high"; tier: "ac" | "sl" | "pv"; perks: string[];
-};
-
-function RouteCard({ lang, opt, open, onToggle, junctions, changeIdx }: {
-  lang: Lang; open: boolean; onToggle: () => void; junctions: string[]; changeIdx: number; opt: RouteOpt;
-}) {
-  const crowdMap = {
-    low: { txt: T(lang, "crowdLow"), dot: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700 ring-emerald-200/70" },
-    medium: { txt: T(lang, "crowdMed"), dot: "bg-amber-500", chip: "bg-amber-50 text-amber-700 ring-amber-200/70" },
-    high: { txt: T(lang, "crowdHigh"), dot: "bg-rose-500", chip: "bg-rose-50 text-rose-700 ring-rose-200/70" },
-  }[opt.crowd];
-
-  const tierMap = {
-    ac: { Icon: Crown, ring: "ring-emerald-200/60", iconBg: "bg-gradient-to-br from-emerald-500 to-emerald-700", tagChip: "bg-emerald-600 text-white" },
-    sl: { Icon: Zap, ring: "ring-amber-200/60", iconBg: "bg-gradient-to-br from-amber-500 to-orange-600", tagChip: "bg-amber-500 text-white" },
-    pv: { Icon: Wallet, ring: "ring-rose-200/60", iconBg: "bg-gradient-to-br from-rose-500 to-rose-700", tagChip: "bg-rose-600 text-white" },
-  }[opt.tier];
-  const TierIcon = tierMap.Icon;
-
+function StaticRouteCard({ lang, route }: { lang: Lang; route: RouteStatic }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ${tierMap.ring} transition-all duration-300 ${open ? "shadow-md" : ""}`}>
-      <button onClick={onToggle} className="flex w-full items-start gap-3 p-3 text-left transition active:scale-[0.99]">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tierMap.iconBg} text-white shadow-sm`}>
-          <TierIcon className="h-5 w-5" strokeWidth={2.5} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold ${tierMap.tagChip}`}>{opt.tag}</span>
-            <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-bold ring-1 ${crowdMap.chip}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${crowdMap.dot}`} /> {crowdMap.txt}
-            </span>
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 shadow-sm">
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-slate-900">{route.name}</p>
+            <p className="mt-1 text-[11px] font-medium text-slate-500">{route.distanceKm} km · {route.duration}</p>
           </div>
-          <p className="mt-1.5 truncate text-[12.5px] font-bold text-slate-900">{opt.bus}</p>
-          <p className="truncate text-[10.5px] font-semibold text-slate-500">{opt.label}</p>
-          <div className="mt-1.5 flex items-center gap-3 text-[11px] font-bold text-slate-700">
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-indigo-500" /> {opt.time}</span>
-            <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3 text-emerald-600" />{opt.price}</span>
-            <span className="ml-auto text-[9.5px] font-semibold text-slate-400">{open ? "—" : T(lang, "expand")}</span>
-          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold uppercase text-slate-700">Verified</span>
         </div>
-        <ChevronRight className={`mt-2 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-90 text-indigo-600" : ""}`} />
-      </button>
-
-      <div className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-        <div className="overflow-hidden">
-          <div className="border-t border-slate-100 bg-slate-50/60 px-3 py-3">
-            <div className="mb-2 flex flex-wrap gap-1">
-              {opt.perks.map((p, i) => (
-                <span key={i} className="rounded-full bg-white px-2 py-0.5 text-[9.5px] font-semibold text-slate-600 ring-1 ring-slate-200">{p}</span>
-              ))}
-            </div>
-            <ol className="space-y-0">
-              {junctions.map((j, i) => {
-                const isStart = i === 0;
-                const isEnd = i === junctions.length - 1;
-                const isChange = i === changeIdx && !isStart && !isEnd;
-                return (
-                  <li key={i} className="relative flex gap-2.5">
-                    <div className="flex flex-col items-center">
-                      <div className={`relative z-10 h-3.5 w-3.5 rounded-full border-[2.5px] bg-white shadow-sm ${
-                        isEnd ? "border-rose-500" : isStart ? "border-emerald-500" : isChange ? "border-amber-500" : "border-indigo-400"
-                      }`}>
-                        {(isStart || isEnd) && <div className={`absolute inset-0.5 rounded-full ${isEnd ? "bg-rose-500" : "bg-emerald-500"}`} />}
-                      </div>
-                      {!isEnd && <div className="w-0.5 flex-1 bg-gradient-to-b from-indigo-300 to-indigo-200" style={{ minHeight: 22 }} />}
-                    </div>
-                    <div className="flex-1 pb-3 pt-0">
-                      <p className="text-[11.5px] font-bold leading-tight text-slate-800">{j}</p>
-                      {isEnd && <span className="mt-1 inline-block rounded-md bg-rose-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-rose-700">{T(lang, "getDown")}</span>}
-                      {isChange && <span className="mt-1 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-amber-700">{T(lang, "changeBus")}</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+        <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-[11px] text-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">Source</span>
+            <span className="text-slate-500">{route.source}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">Last verified</span>
+            <span className="text-slate-500">{route.verifiedAt}</span>
           </div>
         </div>
       </div>
