@@ -50,7 +50,10 @@ out center 20;
 `;
 };
 
-const sortByDistance = (items: Array<{ lat: number; lon: number }>, origin: { lat: number; lon: number }) => {
+const sortByDistance = <T extends { lat: number; lon: number }>(
+  items: T[],
+  origin: { lat: number; lon: number }
+) => {
   return items
     .map((item) => {
       const dy = item.lat - origin.lat;
@@ -90,5 +93,9 @@ export const getNearbyPlaces = createServerFn({ method: "POST" })
       .filter(Boolean) as Array<{ name: string; lat: number; lon: number; type: string }>;
 
     const sorted = sortByDistance(rawPlaces, { lat: city.lat, lon: city.lon }).slice(0, 6);
-    return sorted.map((place) => ({ name: place.name, type: place.type }));
+
+    return sorted.map((place) => ({
+      name: place.name,
+      type: place.type,
+    }));
   });

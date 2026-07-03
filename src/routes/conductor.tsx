@@ -103,7 +103,9 @@ function ConductorLogin({
     setLoading(true);
 
     try {
-      const result = await conductorLogin(employeeId, password);
+      const result = await conductorLogin({
+        data: { employeeId, password },
+      });
 
       if (result.success) {
         setState({
@@ -226,13 +228,15 @@ function ConductorDashboard({
         return;
       }
 
-      const result = await conductorStartTrip(
-        conductorId,
-        busNumber,
-        route.id,
-        route.originId,
-        route.destinationId
-      );
+      const result = await conductorStartTrip({
+        data: {
+          conductorId,
+          busNumber,
+          routeId: route.id,
+          originId: route.originId,
+          destinationId: route.destinationId,
+        },
+      });
 
       if (result.success) {
         setActiveSession(result.session);
@@ -253,7 +257,7 @@ function ConductorDashboard({
     setLoading(true);
 
     try {
-      const result = await conductorEndTrip(activeSession.id);
+      const result = await conductorEndTrip({ data: { sessionId: activeSession.id } });
 
       if (result.success) {
         setActiveSession(null);
